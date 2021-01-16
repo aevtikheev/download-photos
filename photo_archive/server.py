@@ -1,33 +1,40 @@
+"""Photo Archive server application."""
 import asyncio
-import argparse
 import shlex
-import pathlib
 import logging
 import contextlib
+import pathlib
 
 import aiofiles
 from aiohttp import web
 
+from settings import get_settings
+
 
 CHUNK_SIZE = 150 * 1024
-
-CMD_DEBUG_LOG = 'debug_log'
-CMD_DELAY = 'delay'
-CMD_PHOTOS_FOLDER = 'photos_folder'
 
 
 logger = logging.getLogger()
 
 
-class PhotosArchive:
-    """Handlers for Photos Archive site."""
-    def __init__(self, photos_folder, delay=0):
-        self._delay = delay
-        self._photos_folder = pathlib.Path(photos_folder)
+class PhotoArchive:
+    """Route handlers for Photo Archive service."""
 
-    async def archivate(self, request):
-        """Endpoint for zipped user's photos."""
-        logger.debug('Hello')
+    def __init__(self, photos_folder: pathlib.Path, delay: int = 0) -> None:
+        """
+        :param photos_folder: Folder where photos are stored.
+        :param delay: Delay (in seconds) between sending archive chunks. Used for testing.
+        """
+
+        self._delay = delay
+        self._photos_folder = photos_folder
+
+    async def archivate(self, request: web.Request) -> web.StreamResponse:
+        """
+        Endpoint for retrieving zipped user's photos.
+         Zips folder with user's photos, then sends it to a client in chunks.
+        """
+
         archive_hash = request.match_info.get('archive_hash')
         photos_path = self._photos_folder / archive_hash
 
@@ -61,58 +68,33 @@ class PhotosArchive:
                 await zip_process.communicate()
             return response
 
-    async def handle_index_page(self, request):
-        """Main page."""
-        async with aiofiles.open('server/index.html', mode='r') as index_file:
+    async def handle_index_page(self, request: web.Request) -> web.Response:
+        """Index page, used for testing."""
+
+        async with aiofiles.open('photo_archive/index.html', mode='r') as index_file:
             index_contents = await index_file.read()
         return web.Response(text=str(index_contents), content_type='text/html')
 
 
-def _parse_args():
-    """Parse commandline arguments and return them as a dictionary."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--debug_log',
-        action='store_true',
-        default=False,
-        dest=CMD_DEBUG_LOG,
-        help='Enable debug logging'
-    )
-    parser.add_argument(
-        '--delay',
-        dest=CMD_DELAY,
-        type=int,
-        default=0,
-        help='Time to wait between sending chunks of zip archive with photos'
-    )
-    parser.add_argument(
-        '--photos_folder',
-        dest=CMD_PHOTOS_FOLDER,
-        type=str,
-        required=True,
-        help='Path to the folder where photos are stored'
-    )
+def main() -> None:
+    settings = get_settings()
 
-    return vars(parser.parse_args())
-
-
-def main():
-    args = _parse_args()
-
-    log_level = logging.DEBUG if args[CMD_DEBUG_LOG] else logging.INFO
+    log_level = logging.DEBUG if settings.debug_log else logging.INFO
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=log_level
     )
 
-    photos_archive = PhotosArchive(
-        photos_folder=args[CMD_PHOTOS_FOLDER],
-        delay=args[CMD_DELAY]
+    photo_archive = PhotoArchive(
+        photos_folder=settings.photos_folder,
+        delay=settings.delay
     )
+
+    logger.debug(f'Starting app with settings: {settings}')
     app = web.Application()
     app.add_routes([
-        web.get('/', photos_archive.handle_index_page),
-        web.get('/archive/{archive_hash}/', photos_archive.archivate),
+        web.get('/', photo_archive.handle_index_page),
+        web.get('/archive/{archive_hash}/', photo_archive.archivate),
     ])
     web.run_app(app)
 

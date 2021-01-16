@@ -6,8 +6,9 @@ authors = ["aevtikheev <eft000@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8.5"
-aiohttp = "3.6.*"
+aiohttp = "3.6.3"
 aiofiles ="0.4.0"
+environs = "9.3.0"
 
 [tool.poetry.dev-dependencies]
 
