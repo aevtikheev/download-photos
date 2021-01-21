@@ -71,7 +71,7 @@ class PhotoArchive:
     async def handle_index_page(self, request: web.Request) -> web.Response:
         """Index page, used for testing."""
 
-        async with aiofiles.open('photo_archive/index.html', mode='r') as index_file:
+        async with aiofiles.open('index.html', mode='r') as index_file:
             index_contents = await index_file.read()
         return web.Response(text=str(index_contents), content_type='text/html')
 

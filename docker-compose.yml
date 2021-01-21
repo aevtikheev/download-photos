@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  photo-archive:
+    image: photo-archive
+    build: .
+    volumes:
+      - ./test_photos:/app
+    ports:
+      - 8080:8080
+    environment:
+      PHOTOS_FOLDER: /app
+      DEBUG_LOG: "True"
