@@ -35,7 +35,7 @@ class PhotoArchive:
          Zips folder with user's photos, then sends it to a client in chunks.
         """
 
-        archive_hash = request.match_info.get('archive_hash')
+        archive_hash = request.match_info['archive_hash']
         photos_path = self._photos_folder / archive_hash
 
         if not photos_path.exists():
@@ -47,7 +47,7 @@ class PhotoArchive:
         await response.prepare(request)
 
         zip_process = await asyncio.create_subprocess_exec(
-            *shlex.split(f'zip -r -j - {photos_path}'),
+            *shlex.split(f'zip -r - {photos_path}'),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )

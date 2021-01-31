@@ -7,9 +7,8 @@ from pathlib import Path
 from environs import Env
 
 
-ARG_DEBUG_LOG = 'debug_log'
-ARG_DELAY = 'delay'
-ARG_PHOTOS_FOLDER = 'photos_folder'
+DEFAULT_DEBUG_LOG = False
+DEFAULT_DELAY = 0
 
 
 class ConfigurationError(Exception):
@@ -32,57 +31,75 @@ class Settings:
         )
 
 
-def _parse_cmd_args() -> dict:
+def _parse_cmd_args() -> argparse.Namespace:
     """Parse commandline arguments and return them as a dictionary."""
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--debug_log',
         action='store_true',
-        dest=ARG_DEBUG_LOG,
-        help='Enable debug logging'
+        dest='debug_log',
+        default=DEFAULT_DEBUG_LOG,
+        help='Enable debug logging',
     )
     parser.add_argument(
         '--delay',
-        dest=ARG_DELAY,
+        dest='delay',
         type=int,
-        help='Time to wait between sending chunks of zip archive with photos'
+        default=DEFAULT_DELAY,
+        help='Time to wait between sending chunks of zip archive with photos',
     )
     parser.add_argument(
         '--photos_folder',
-        dest=ARG_PHOTOS_FOLDER,
+        dest='photos_folder',
         type=str,
-        help='Path to the folder where photos are stored'
+        help='Path to the folder where photos are stored',
     )
 
-    return vars(parser.parse_args())
+    return parser.parse_args()
 
 
-def get_settings() -> Settings:
-    """Read application settings from commandline or environment variables."""
+def _read_cmd_args(cmd_args: argparse.Namespace) -> Settings:
+    """
+    Extracts app settings from parsed commandline arguments
+     and converts them to settings dataclass.
+    """
 
-    default_debug_log = False
-    default_delay = 0
-
-    cmd_args = _parse_cmd_args()
-    if any(cmd_args.values()):
-        if not cmd_args[ARG_PHOTOS_FOLDER]:
-            raise ConfigurationError('Path to photos is not specified')
-        photos_folder = Path(cmd_args[ARG_PHOTOS_FOLDER])
-        debug_log = cmd_args[ARG_DEBUG_LOG] if cmd_args[ARG_DEBUG_LOG] else default_debug_log
-        delay = cmd_args[ARG_DELAY] if cmd_args[ARG_DELAY] else default_delay
-    else:
-        env = Env()
-        env.read_env()
-        photos_folder = env('PHOTOS_FOLDER', None)
-        if photos_folder is None:
-            raise ConfigurationError('Path to photos is not specified')
-        photos_folder = Path(photos_folder)
-        debug_log = env.bool('DEBUG_LOG', default_debug_log)
-        delay = env.int('DELAY', default_delay)
+    photos_folder = Path(cmd_args.photos_folder)
+    debug_log = cmd_args.debug_log
+    delay = cmd_args.delay
 
     return Settings(
         debug_log=debug_log,
         delay=delay,
         photos_folder=Path(photos_folder)
     )
+
+
+def _read_env_vars() -> Settings:
+    """
+    Extracts app settings from environment variables
+     and converts them to settings dataclass.
+    """
+
+    env = Env()
+    env.read_env()
+    photos_folder = env('PHOTOS_FOLDER', None)
+    if photos_folder is None:
+        raise ConfigurationError('Path to photos is not specified')
+    photos_folder = Path(photos_folder)
+    debug_log = env.bool('DEBUG_LOG', DEFAULT_DEBUG_LOG)
+    delay = env.int('DELAY', DEFAULT_DELAY)
+
+    return Settings(
+        debug_log=debug_log,
+        delay=delay,
+        photos_folder=Path(photos_folder)
+    )
+
+
+def get_settings() -> Settings:
+    """Read application settings from commandline or environment variables."""
+
+    cmd_args = _parse_cmd_args()
+    return _read_cmd_args(cmd_args) if cmd_args.photos_folder else _read_env_vars()
